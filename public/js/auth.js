@@ -4,18 +4,10 @@ import { navigate, loadServices } from './ui.js';
 
 let serviceCheckInterval;
 
-export function initializeAuth() {
-    document.getElementById('auth-form').addEventListener('submit', handleAuthFormSubmit);
-    document.getElementById('toggle-auth-mode').addEventListener('click', toggleAuthMode);
-    document.getElementById('logout-button').addEventListener('click', handleLogout);
-    
-    // Listen for the custom auth-change event dispatched by the API helper
-    window.addEventListener('auth-change', checkAuthState);
-
-    checkAuthState(); // Initial check on page load
-}
-
-async function handleAuthFormSubmit(e) {
+/**
+ * Handles the submission of the login/registration form.
+ */
+export async function handleAuthFormSubmit(e) {
     e.preventDefault();
     const authTitle = document.getElementById('auth-title');
     const emailInput = document.getElementById('email-address');
@@ -50,7 +42,10 @@ async function handleAuthFormSubmit(e) {
     }
 }
 
-function toggleAuthMode(e) {
+/**
+ * Toggles the auth form between login and registration modes.
+ */
+export function toggleAuthMode(e) {
     e.preventDefault();
     const authTitle = document.getElementById('auth-title');
     const isLogin = authTitle.textContent.includes('Sign in');
@@ -58,11 +53,18 @@ function toggleAuthMode(e) {
     e.target.textContent = isLogin ? 'Already have an account? Sign in' : "Don't have an account? Sign up";
 }
 
-function handleLogout() {
+/**
+ * Logs the user out by clearing their token.
+ */
+export function handleLogout() {
     localStorage.removeItem('accessToken');
     checkAuthState();
 }
 
+/**
+ * Checks if a user is logged in and shows the correct view.
+ * This is the central function for managing the application's state.
+ */
 export function checkAuthState() {
     if (localStorage.getItem('accessToken')) {
         navigate('dashboard');

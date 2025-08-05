@@ -1,7 +1,7 @@
 // src/config/database.js
 
 const sqlite3 = require('sqlite3').verbose();
-const LATEST_SCHEMA_VERSION = 3;
+const LATEST_SCHEMA_VERSION = 4; // New migration for uptime percentage
 
 const db = new sqlite3.Database('./database.sqlite', (err) => {
     if (err) {
@@ -33,7 +33,8 @@ function runMigrations() {
         const migrations = [
             () => db.exec(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL); CREATE TABLE IF NOT EXISTS services (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, name TEXT NOT NULL, type TEXT NOT NULL, target TEXT NOT NULL, interval INTEGER NOT NULL, status TEXT DEFAULT 'Pending', lastChecked DATETIME, FOREIGN KEY (user_id) REFERENCES users (id));`),
             () => db.exec(`ALTER TABLE services ADD COLUMN lastResponseTime INTEGER; CREATE TABLE IF NOT EXISTS status_history (id INTEGER PRIMARY KEY AUTOINCREMENT, service_id INTEGER NOT NULL, timestamp DATETIME NOT NULL, status INTEGER NOT NULL, response_time INTEGER NOT NULL, FOREIGN KEY (service_id) REFERENCES services (id) ON DELETE CASCADE);`),
-            () => db.exec(`ALTER TABLE services ADD COLUMN locations TEXT;`)
+            () => db.exec(`ALTER TABLE services ADD COLUMN locations TEXT;`),
+            () => db.exec(`ALTER TABLE services ADD COLUMN uptime_24h REAL DEFAULT 100.0;`) // Migration 4
         ];
 
         db.serialize(() => {

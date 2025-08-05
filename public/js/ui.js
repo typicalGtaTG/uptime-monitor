@@ -2,6 +2,7 @@
 
 import { apiFetch } from './api.js';
 
+// --- DOM Elements & State ---
 const views = {
     auth: document.getElementById('auth-view'),
     dashboard: document.getElementById('dashboard-view'),
@@ -34,7 +35,9 @@ const allLocations = {
 
 const uptimeCharts = {};
 let servicesCache = [];
+let multiSelectInitialized = false;
 
+// --- Navigation & Core UI ---
 export function navigate(viewName) {
     Object.values(views).forEach(v => v.classList.add('hidden'));
     views[viewName].classList.remove('hidden');
@@ -58,9 +61,9 @@ export async function loadServices() {
 function renderServiceCard(service) {
     const container = document.getElementById('services-container');
     const status = service.status || 'Pending';
-    const statusColor = status === 'Up' ? 'text-green-400' : 'text-red-400';
-    
-    // FIX: Add error handling for malformed location data
+    const statusClass = `status-${status.toLowerCase()}`;
+    const uptime = service.uptime_24h != null ? `${service.uptime_24h}%` : '...';
+    const uptimeColor = service.uptime_24h >= 99.9 ? 'text-green-400' : 'text-yellow-400';
     let locationsText = "None";
     try {
         const parsedLocations = JSON.parse(service.locations || '[]');
@@ -72,53 +75,132 @@ function renderServiceCard(service) {
     }
 
     const card = document.createElement('div');
-    card.className = 'glass glass-interactive p-6 flex flex-col';
-    card.innerHTML = `<div class="flex-grow flex flex-col">
-        <div class="flex justify-between items-start mb-2"><h3 class="text-xl font-bold text-white">${service.name}</h3><span class="font-bold text-lg ${statusColor}">${status}</span></div>
-        <p class="text-sm text-slate-400 truncate">${service.target}</p>
-        <p class="text-xs text-slate-500 mt-1">Avg. Response: ${service.lastResponseTime ?? 'N/A'} ms</p>
-        <p class="text-xs text-slate-500 mt-1">Locations: ${locationsText}</p>
-        <div class="flex-grow mt-4 min-h-[150px]"><canvas id="chart-${service.id}"></canvas></div>
-    </div>
-    <div class="mt-4 pt-4 border-t border-slate-700 flex items-center justify-between text-xs text-slate-400">
-        <button data-id="${service.id}" class="edit-service-button font-semibold text-blue-400 hover:text-blue-300">Edit</button>
-        <button data-id="${service.id}" class="delete-service-button font-semibold text-red-400 hover:text-red-300">Delete</button>
-    </div>`;
+    card.className = `glass-interactive p-6 flex flex-col service-card ${statusClass}`;
+    card.dataset.serviceId = service.id;
+
+    // FIX: The Edit and Delete buttons were missing from this template. They are now restored.
+    card.innerHTML = `
+        <div class="flex-grow flex flex-col">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h3 class="text-xl font-bold text-white">${service.name}</h3>
+                    <p class="text-sm text-slate-400 truncate">${service.target}</p>
+                </div>
+                <div class="text-right">
+                    <div class="font-bold text-lg ${status === 'Up' ? 'text-green-400' : 'text-red-400'}">${status}</div>
+                    <div class="text-xs text-slate-400">${service.lastResponseTime ?? 'N/A'} ms</div>
+                </div>
+            </div>
+            <div class="flex-grow flex items-end justify-between gap-4">
+                <div class="flex-grow h-16">
+                    <canvas id="sparkline-${service.id}"></canvas>
+                </div>
+                <div class="text-right">
+                    <div class="text-xs text-slate-400">24h Uptime</div>
+                    <div class="text-2xl font-bold ${uptimeColor}">${uptime}</div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-slate-700 flex items-center justify-between text-xs text-slate-400">
+            <button data-id="${service.id}" class="edit-service-button font-semibold text-blue-400 hover:text-blue-300">Edit</button>
+            <button data-id="${service.id}" class="delete-service-button font-semibold text-red-400 hover:text-red-300">Delete</button>
+        </div>`;
     container.appendChild(card);
-    loadChartForService(service.id);
+    renderSparkline(service.id);
 }
 
-async function loadChartForService(serviceId) {
+// --- Charting ---
+async function renderSparkline(serviceId) {
     try {
         const history = await apiFetch(`/api/services/${serviceId}/history`);
-        const labels = history.map(h => new Date(h.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}));
-        const data = history.map(h => h.response_time); 
-        const ctx = document.getElementById(`chart-${serviceId}`).getContext('2d');
-        if (uptimeCharts[serviceId]) uptimeCharts[serviceId].destroy();
-        uptimeCharts[serviceId] = new Chart(ctx, {
+        if (history.length === 0) return;
+        
+        const data = history.map(h => h.response_time);
+        const labels = history.map(() => '');
+        const ctx = document.getElementById(`sparkline-${serviceId}`).getContext('2d');
+
+        new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets: [{ data, borderColor: '#60a5fa', borderWidth: 2, pointRadius: 0, tension: 0.4 }] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { x: { display: false }, y: { display: false } },
+                plugins: { legend: { display: false }, tooltip: { enabled: false } }
+            }
+        });
+    } catch (e) { /* fail silently */ }
+}
+
+// --- Detail Modal Logic ---
+export function openDetailModal(serviceId) {
+    const service = servicesCache.find(s => s.id == serviceId);
+    if (!service) return;
+
+    const modal = document.getElementById('detail-modal');
+    document.getElementById('modal-title').textContent = service.name;
+    document.getElementById('modal-target').textContent = service.target;
+    document.getElementById('modal-uptime').textContent = `${service.uptime_24h ?? '...'}%`;
+    
+    const uptimeColor = service.uptime_24h >= 99.9 ? 'text-green-400' : 'text-yellow-400';
+    document.getElementById('modal-uptime').className = `text-3xl font-bold ${uptimeColor}`;
+
+    const downtimeList = document.getElementById('modal-downtime-list');
+    downtimeList.innerHTML = '<li>Loading...</li>';
+
+    modal.classList.add('visible');
+
+    apiFetch(`/api/services/${serviceId}/history`).then(history => {
+        const labels = history.map(h => new Date(h.timestamp).toLocaleTimeString());
+        const data = history.map(h => h.response_time);
+        const ctx = document.getElementById('modal-chart').getContext('2d');
+        if (uptimeCharts.modal) uptimeCharts.modal.destroy();
+        uptimeCharts.modal = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: labels,
+                labels,
                 datasets: [{
-                    label: 'Response Time (ms)', data: data, borderColor: 'rgba(96, 165, 250, 1)', backgroundColor: 'rgba(96, 165, 250, 0.2)',
+                    label: 'Response Time (ms)', data, borderColor: 'rgba(96, 165, 250, 1)', backgroundColor: 'rgba(96, 165, 250, 0.2)',
                     fill: true, tension: 0.4, pointBackgroundColor: 'rgba(96, 165, 250, 1)', pointRadius: 2,
                 }]
             },
             options: {
-                responsive: true, maintainAspectRatio: false,
+                responsive: true, maintainAspectRatio: true,
                 scales: {
-                    y: { beginAtZero: true, ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(148, 163, 184, 0.1)' } },
-                    x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } }
+                    y: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.1)' } },
+                    x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
                 },
                 plugins: { legend: { display: false } }
             }
         });
-    } catch (error) {
-        console.error(`Could not load chart for service ${serviceId}`, error);
+
+        const downtimes = history.filter(h => h.status === 0);
+        downtimeList.innerHTML = '';
+        if (downtimes.length === 0) {
+            downtimeList.innerHTML = '<li>No downtime in the last 30 checks.</li>';
+        } else {
+            downtimes.reverse().slice(0, 5).forEach(d => {
+                const li = document.createElement('li');
+                li.textContent = `Down at ${new Date(d.timestamp).toLocaleString()}`;
+                downtimeList.appendChild(li);
+            });
+        }
+    });
+}
+
+export function closeDetailModal() {
+    document.getElementById('detail-modal').classList.remove('visible');
+    if (uptimeCharts.modal) {
+        uptimeCharts.modal.destroy();
     }
 }
 
+// --- Manage Service Page Logic ---
 export function showManageServicePage(serviceId = null) {
+    if (!multiSelectInitialized) {
+        initializeMultiSelectListeners();
+        multiSelectInitialized = true;
+    }
+
     const service = serviceId ? servicesCache.find(s => s.id == serviceId) : null;
     const form = document.getElementById('manage-service-form');
     form.reset();
@@ -135,7 +217,6 @@ export function showManageServicePage(serviceId = null) {
 }
 
 // --- Multi-Select Logic ---
-
 function populateMultiSelect(selectedLocations) {
     const tagsContainer = document.getElementById('tags-container');
     const dropdown = document.getElementById('locations-dropdown');
@@ -146,13 +227,11 @@ function populateMultiSelect(selectedLocations) {
     const allFlattenedLocations = Object.values(allLocations).flat();
     const selectedCodes = selectedLocations.map(loc => loc.value);
 
-    // Render initial selected tags
     selectedCodes.forEach(code => {
         const locationData = allFlattenedLocations.find(l => l.code === code);
         if (locationData) addTag(locationData);
     });
 
-    // Render available locations in dropdown
     for (const continent in allLocations) {
         const continentHeader = document.createElement('div');
         continentHeader.className = 'dropdown-header';
@@ -196,8 +275,7 @@ function filterLocations() {
     });
 }
 
-// FIX: Setup event listeners for the multi-select component only once.
-export function initializeMultiSelectListeners() {
+function initializeMultiSelectListeners() {
     const container = document.getElementById('multi-select-container');
     const searchInput = document.getElementById('location-search');
     const dropdown = document.getElementById('locations-dropdown');
@@ -227,10 +305,8 @@ export function initializeMultiSelectListeners() {
     tagsContainer.addEventListener('click', (e) => {
         if (e.target.classList.contains('tag-close')) {
             const tag = e.target.parentElement;
-            const locationData = { code: tag.dataset.code, name: tag.dataset.name };
-            // A bit complex to re-insert into the correct continent, so we'll just repopulate.
             const currentSelected = Array.from(tagsContainer.querySelectorAll('.tag'))
-                .filter(t => t !== tag) // Exclude the one being removed
+                .filter(t => t !== tag)
                 .map(t => ({ value: t.dataset.code }));
             populateMultiSelect(currentSelected);
             tag.remove();

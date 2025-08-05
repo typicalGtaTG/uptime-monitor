@@ -36,7 +36,6 @@ async function performCheck(service) {
     
     const locations = JSON.parse(service.locations || '[]');
     if (locations.length === 0) {
-        console.log(` -> [SKIPPED] No locations configured for ${service.name}`);
         const updatedService = { ...service, lastChecked: new Date().toISOString() };
         scheduleNextCheck(updatedService);
         return;
@@ -45,57 +44,52 @@ async function performCheck(service) {
     const headers = { 'Content-Type': 'application/json' };
     if (GLOBALPING_API_KEY) headers['Authorization'] = `Bearer ${GLOBALPING_API_KEY}`;
 
-    const checkPromises = locations.map(location => {
-        const startTime = Date.now();
-        
-        // THE FIX IS HERE:
-        // The API expects an array of location objects. For a single check,
-        // we create an array with one object in the correct format.
-        const payload = {
-            type: service.type,
-            target: service.target,
-            locations: [{
-                [location.type]: location.value, // Creates { "country": "DE" }
-                limit: 1
-            }]
-        };
+    const payload = {
+        type: service.type,
+        target: service.target,
+        locations: locations.map(loc => ({ [loc.type]: loc.value, limit: 1 }))
+    };
 
-        return fetch('https://api.globalping.io/v1/measurements', {
+    const startTime = Date.now();
+    let isUp = false;
+    let averageResponseTime = 0;
+
+    try {
+        const response = await fetch('https://api.globalping.io/v1/measurements', {
             method: 'POST',
             headers: headers,
             body: JSON.stringify(payload)
-        }).then(async response => {
-            const responseTime = Date.now() - startTime;
-            if (!response.ok) {
-                const errorBody = await response.json().catch(() => ({}));
-                const errorMessage = errorBody.error?.message || errorBody.message || 'Unknown error';
-                return { ok: false, status: response.status, responseTime, error: errorMessage, location: location.value };
-            }
-            return { ok: true, status: response.status, responseTime, location: location.value };
-        }).catch(err => ({ ok: false, status: 500, responseTime: 0, error: err.message, location: location.value }));
-    });
-
-    const results = await Promise.all(checkPromises);
-    const successfulChecks = results.filter(r => r.ok);
-    const failedChecks = results.filter(r => !r.ok);
-    
-    if(failedChecks.length > 0) {
-        console.log(` -> [DEBUG] Failed checks for ${service.name}:`);
-        failedChecks.forEach(f => console.log(`    - Location: ${f.location}, Status: ${f.status}, Error: ${f.error}`));
+        });
+        isUp = response.ok;
+        averageResponseTime = Date.now() - startTime;
+    } catch (err) {
+        isUp = false;
     }
     
-    const isUp = successfulChecks.length > 0;
+    const now = new Date();
     const statusText = isUp ? 'Up' : 'Down';
-    const now = new Date().toISOString();
-    
-    const totalResponseTime = successfulChecks.reduce((sum, r) => sum + r.responseTime, 0);
-    const averageResponseTime = successfulChecks.length > 0 ? Math.round(totalResponseTime / successfulChecks.length) : 0;
 
-    db.run(`UPDATE services SET status = ?, lastChecked = ?, lastResponseTime = ? WHERE id = ?`, [statusText, now, averageResponseTime, service.id]);
-    db.run(`INSERT INTO status_history (service_id, timestamp, status, response_time) VALUES (?, ?, ?, ?)`, [service.id, now, isUp ? 1 : 0, averageResponseTime]);
+    // Insert current check into history
+    db.run(`INSERT INTO status_history (service_id, timestamp, status, response_time) VALUES (?, ?, ?, ?)`, 
+        [service.id, now.toISOString(), isUp ? 1 : 0, averageResponseTime]);
 
-    console.log(` -> [RESULT] for ${service.name}: ${statusText} (${averageResponseTime}ms avg) - ${successfulChecks.length}/${locations.length} locations succeeded`);
-    const updatedService = { ...service, lastChecked: now };
+    // Calculate 24-hour uptime
+    const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000)).toISOString();
+    db.all(`SELECT status FROM status_history WHERE service_id = ? AND timestamp >= ?`, [service.id, twentyFourHoursAgo], (err, rows) => {
+        if (err) return console.error(`Error calculating uptime for ${service.name}:`, err);
+        
+        const upCount = rows.filter(r => r.status === 1).length;
+        const totalCount = rows.length;
+        const uptimePercentage = totalCount > 0 ? (upCount / totalCount) * 100 : 100;
+
+        // Update the main service entry with status and new uptime stat
+        db.run(`UPDATE services SET status = ?, lastChecked = ?, lastResponseTime = ?, uptime_24h = ? WHERE id = ?`, 
+            [statusText, now.toISOString(), averageResponseTime, uptimePercentage.toFixed(2), service.id]);
+        
+        console.log(` -> [RESULT] for ${service.name}: ${statusText} (${averageResponseTime}ms) - 24h Uptime: ${uptimePercentage.toFixed(2)}%`);
+    });
+
+    const updatedService = { ...service, lastChecked: now.toISOString() };
     scheduleNextCheck(updatedService);
 }
 
