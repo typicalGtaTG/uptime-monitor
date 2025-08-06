@@ -8,17 +8,125 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Our Custom Stylesheet -->
-    <link rel="stylesheet" href="/css/style.css">
+    
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #0f172a;
+            color: #e2e8f0; 
+            overflow-x: hidden;
+        }
+
+        .aurora-background {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: -1;
+            background: radial-gradient(circle at 15% 25%, rgba(167, 139, 250, 0.15), transparent 40%),
+                        radial-gradient(circle at 85% 75%, rgba(59, 130, 246, 0.15), transparent 40%);
+            animation: subtle-aurora 40s ease-in-out infinite alternate;
+        }
+
+        @keyframes subtle-aurora {
+            0% { transform: rotate(0deg) scale(1.2); }
+            100% { transform: rotate(360deg) scale(1.2); }
+        }
+
+        /* Base styling for all glass elements (navbar, modals) */
+        .glass { 
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            background-color: rgba(17, 25, 40, 0.75);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.125);
+        }
+
+        /* --- UPDATED: Specific, robust styling for service cards --- */
+        .service-card {
+            position: relative;
+            overflow: hidden; /* This is the key to clipping the animation */
+            border-radius: 12px;
+            transition: all 0.2s ease-in-out;
+            padding: 1px; /* Creates space for the border */
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.125), rgba(255, 255, 255, 0.125)); /* Static border */
+        }
+        .service-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .card-content {
+            width: 100%;
+            height: 100%;
+            padding: 1.5rem; /* 24px */
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            background-color: rgba(17, 25, 40, 0.75);
+            border-radius: inherit; /* Match the parent's rounding */
+        }
+
+        /* --- NEW: Circling Glow Animation --- */
+        .status-refreshing::after { /* Using ::after to not conflict with a potential ::before */
+            content: "";
+            position: absolute;
+            z-index: -1;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background-repeat: no-repeat;
+            background-position: 0 0, 100% 0, 100% 100%, 0 100%;
+            background-image: conic-gradient(transparent, #facc15, transparent 30%);
+            animation: circling-glow 1.5s linear infinite;
+        }
+
+        @keyframes circling-glow {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* The static border is now the background of the outer container */
+        .status-up {
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
+        }
+        .status-down {
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+        }
+        .status-pending {
+            box-shadow: 0 0 20px rgba(234, 179, 8, 0.4);
+        }
+        /* When refreshing, we remove the static border/glow to replace it with the animation */
+        .status-refreshing {
+            background: transparent; /* Hide the static border */
+            box-shadow: none; /* Hide the static glow */
+        }
+
+        .btn-primary { background-image: linear-gradient(to right, #3b82f6, #60a5fa); }
+        .btn-danger { background-image: linear-gradient(to right, #ef4444, #f87171); }
+        .form-input { 
+            display: block; width: 100%; padding: 0.75rem; border: 1px solid #334155; background-color: #1e293b; color: #e2e8f0; border-radius: 0.375rem; 
+        }
+        .form-input:focus { 
+            outline: none; --tw-ring-color: #3b82f6; border-color: #3b82f6; box-shadow: 0 0 0 2px var(--tw-ring-color);
+        }
+
+        .multi-select-container { position: relative; }
+        .multi-select-input-wrapper { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0.5rem; border: 1px solid #334155; background-color: #1e293b; border-radius: 0.375rem; cursor: text; }
+        .multi-select-input-wrapper:focus-within { border-color: #3b82f6; box-shadow: 0 0 0 2px #3b82f6; }
+        .tags-container { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+        .tag { display: inline-flex; align-items: center; background-color: #3b82f6; color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 500; }
+        .tag-close { margin-left: 0.5rem; cursor: pointer; font-weight: bold; }
+        .location-search-input { flex-grow: 1; background: transparent; border: none; outline: none; color: #e2e8f0; padding: 0.25rem; min-width: 150px; }
+        .locations-dropdown { position: absolute; top: 100%; left: 0; right: 0; margin-top: 0.25rem; background-color: #1e293b; border: 1px solid #334155; border-radius: 0.375rem; max-height: 200px; overflow-y: auto; z-index: 10; }
+        .dropdown-item { padding: 0.5rem 0.75rem; cursor: pointer; }
+        .dropdown-item:hover { background-color: #334155; }
+        .dropdown-item.hidden { display: none; }
+        .dropdown-header { padding: 0.5rem 0.75rem; font-weight: 600; color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; position: sticky; top: 0; background-color: #1e293b; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.8); backdrop-filter: blur(8px); z-index: 50; display: flex; align-items: center; justify-content: center; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; }
+        .modal-overlay.visible { opacity: 1; visibility: visible; }
+        .modal-content { transform: scale(0.95); transition: transform 0.3s ease; }
+        .modal-overlay.visible .modal-content { transform: scale(1); }
+    </style>
 </head>
 <body class="antialiased">
-    <!-- NEW: Animated Mesh Gradient Background -->
-    <div class="gradient-background">
-        <div class="gradient-blob1"></div>
-        <div class="gradient-blob2"></div>
-        <div class="gradient-blob3"></div>
-        <div class="gradient-blob4"></div>
-    </div>
+    <div class="aurora-background"></div>
 
     <!-- Auth View -->
     <div id="auth-view" class="min-h-screen flex items-center justify-center p-4">
@@ -62,7 +170,7 @@
 
     <!-- Detail Modal View -->
     <div id="detail-modal" class="modal-overlay">
-        <div class="modal-content glass w-full max-w-3xl rounded-lg m-4">
+        <div class="modal-content glass w-full max-w-3xl m-4">
             <div class="p-6 border-b border-slate-700 flex justify-between items-start">
                 <div>
                     <h2 id="modal-title" class="text-2xl font-bold text-white">Service Details</h2>

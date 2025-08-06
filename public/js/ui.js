@@ -44,6 +44,12 @@ export function navigate(viewName) {
 }
 
 export async function loadServices() {
+    // Add refreshing animation before fetching data
+    document.querySelectorAll('.service-card').forEach(card => {
+        card.classList.remove('status-up', 'status-down', 'status-pending');
+        card.classList.add('status-refreshing');
+    });
+
     try {
         servicesCache = await apiFetch('/api/services');
         const container = document.getElementById('services-container');
@@ -74,12 +80,16 @@ function renderServiceCard(service) {
         locationsText = "Invalid Locations";
     }
 
-    const card = document.createElement('div');
-    card.className = `glass-interactive p-6 flex flex-col service-card ${statusClass}`;
-    card.dataset.serviceId = service.id;
+    // NEW: Create the outer div for clipping and animation
+    const cardOuter = document.createElement('div');
+    cardOuter.className = `service-card ${statusClass}`;
+    cardOuter.dataset.serviceId = service.id;
 
-    // FIX: The Edit and Delete buttons were missing from this template. They are now restored.
-    card.innerHTML = `
+    // Create the inner div for content
+    const cardInner = document.createElement('div');
+    cardInner.className = 'card-content flex flex-col';
+    
+    cardInner.innerHTML = `
         <div class="flex-grow flex flex-col">
             <div class="flex justify-between items-start mb-4">
                 <div>
@@ -105,7 +115,9 @@ function renderServiceCard(service) {
             <button data-id="${service.id}" class="edit-service-button font-semibold text-blue-400 hover:text-blue-300">Edit</button>
             <button data-id="${service.id}" class="delete-service-button font-semibold text-red-400 hover:text-red-300">Delete</button>
         </div>`;
-    container.appendChild(card);
+    
+    cardOuter.appendChild(cardInner);
+    container.appendChild(cardOuter);
     renderSparkline(service.id);
 }
 

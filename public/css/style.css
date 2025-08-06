@@ -28,26 +28,33 @@ body::before {
     100% { transform: rotate(360deg) scale(1.2); }
 }
 
-/* --- UPDATED Card Styling to match reference --- */
+/* --- UPDATED Card Styling --- */
 .glass { 
-    /* More solid, darker background */
+    position: relative; /* Required for the pseudo-element border */
     background-color: rgba(22, 34, 57, 0.7); 
-    /* Increased border-radius for softer corners */
-    border-radius: 1rem; 
-    /* Subtle gradient border */
-    border: 1px solid transparent;
-    background-clip: padding-box;
-    -webkit-background-clip: padding-box;
-    border-image: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05)) 1;
-    /* Inner shadow for depth */
-    box-shadow: inset 0px 1px 1px 0px rgba(255, 255, 255, 0.05);
+    border-radius: 1rem; /* Softer, larger rounded corners */
     backdrop-filter: blur(12px) saturate(150%); 
     -webkit-backdrop-filter: blur(12px) saturate(150%); 
+    border: 1px solid transparent; /* Hide the base border */
+    background-clip: padding-box; /* Important for the border effect */
+    -webkit-background-clip: padding-box;
 }
+
+/* This pseudo-element creates the subtle gradient border */
+.glass::before {
+    content: "";
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    z-index: -1;
+    margin: -1px; /* The width of the border */
+    border-radius: inherit; /* Match the parent's rounded corners */
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05));
+}
+
 .glass-interactive { transition: all 0.2s ease-in-out; }
 .glass-interactive:hover { 
     transform: translateY(-2px); 
-    box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4), inset 0px 1px 1px 0px rgba(255, 255, 255, 0.05); 
+    box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4); 
 }
 
 .btn-primary { background-image: linear-gradient(to right, #3b82f6, #60a5fa); }
@@ -57,11 +64,9 @@ body::before {
 }
 .form-input:focus { 
     outline: none; 
-    --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
-    --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
-    box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
     --tw-ring-color: #3b82f6;
     border-color: #3b82f6; 
+    box-shadow: 0 0 0 2px var(--tw-ring-color);
 }
 
 /* --- Multi-Select Styles --- */
@@ -79,10 +84,9 @@ body::before {
 .dropdown-header { padding: 0.5rem 0.75rem; font-weight: 600; color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; position: sticky; top: 0; background-color: #1e293b; }
 
 /* --- Status Glow & Modal Styles --- */
-/* The status glow now uses the main box-shadow property */
-.status-up { box-shadow: 0 0 15px rgba(34, 197, 94, 0.3), inset 0px 1px 1px 0px rgba(255, 255, 255, 0.05); }
-.status-down { box-shadow: 0 0 15px rgba(239, 68, 68, 0.3), inset 0px 1px 1px 0px rgba(255, 255, 255, 0.05); }
-.status-pending { box-shadow: 0 0 15px rgba(234, 179, 8, 0.3), inset 0px 1px 1px 0px rgba(255, 255, 255, 0.05); }
+.status-up { /* The glow is now part of the hover effect */ }
+.status-down { /* The glow is now part of the hover effect */ }
+.status-pending { /* The glow is now part of the hover effect */ }
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.8); backdrop-filter: blur(8px); z-index: 50; display: flex; align-items: center; justify-content: center; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; }
 .modal-overlay.visible { opacity: 1; visibility: visible; }
 .modal-content { transform: scale(0.95); transition: transform 0.3s ease; }
