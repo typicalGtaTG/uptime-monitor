@@ -141,3 +141,6 @@ vite.config.ts.timestamp-*
 #Datbases
 *.sqlite
 database.sqlite
+
+# AI Files
+AGENTS.md

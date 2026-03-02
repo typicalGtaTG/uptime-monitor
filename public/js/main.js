@@ -34,6 +34,9 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'add-service-button':
                 showManageServicePage();
                 break;
+            case 'retry-load-services':
+                loadServices();
+                break;
             case 'cancel-manage-button':
                 window.dispatchEvent(new CustomEvent('auth-change'));
                 break;
@@ -71,7 +74,10 @@ async function handleManageServiceSubmit(e) {
     e.preventDefault();
     const id = document.getElementById('service-id').value;
     const selectedLocations = Array.from(document.querySelectorAll('#tags-container .tag'))
-        .map(tag => ({ "value": tag.dataset.code, "type": "country" }));
+        .map(tag => ({
+            value: tag.dataset.code,
+            type: tag.dataset.type || 'country'
+        }));
     
     const serviceData = {
         name: document.getElementById('service-name').value,
