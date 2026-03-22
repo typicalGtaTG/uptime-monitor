@@ -1,114 +1,62 @@
-# Phase 4 Plan: Advanced Monitor Details
+# Phase 4 Plan: Advanced Monitor Details (Updated 2026-03-21)
 
-## Goal
-Move from a simple graph modal to a full monitor drilldown experience that gives deep operational context at a glance.
+## Current State
 
-This phase is inspired by enterprise uptime tools, but adapted for this project's architecture and self-hosted model.
+Phase 4 is **mostly implemented in backend/data terms** and **partially implemented in frontend UX terms**.
 
----
-
-## UX Outcome (Target)
-When a user clicks a service card, they should see:
-
-1. **Monitor Details**
-   - monitored since
-   - last overall check
-   - monitor frequency
-   - timeout limit
-   - check source status (global / failover / local-only)
-
-2. **Uptime Windows**
-   - 24h, 7d, 30d, yearly, total
-   - active incident duration (if currently down)
-
-3. **Regional Status**
-   - per-location rows with current latency, recent trend, last check age
-   - optional map visualization overlay for global points
-
-4. **Incident Timeline**
-   - recent incidents with start/end/duration/reason
-
----
-
-## Backend Scope
-
-### Data additions (additive migrations only)
-- `status_history.check_source` (`globalping` | `local`)
-- optional `status_history.location_label` (for regional rows)
-- `service_incidents` table for historical incident records:
-  - `id`, `service_id`, `started_at`, `ended_at`, `duration_ms`, `reason`, `resolved_by`
-
-### API additions
+Already implemented:
 - `GET /api/services/:id/details`
-  - monitor metadata summary
-  - uptime windows
-  - active incident state
-  - latest regional snapshot
 - `GET /api/services/:id/incidents`
-  - paginated incident history
-- `GET /api/services/:id/regions`
-  - current and recent per-location metrics
+- `GET /api/services/:id/regions/latest`
+- rollups, incidents, degradation, and regional persistence
+- modal tabs, recent diagnostics, and regional map rendering
 
----
+Still missing or incomplete:
+- frontend is not using `/details` as the main aggregate source yet
+- incident history UI is still shallow
+- regional diagnostics are useful but not fully operator-grade
+- loading/error/empty states in the detail surface can be more granular
 
-## Frontend Scope
+## Remaining Goal
 
-### Navigation model
-- Keep dashboard cards as-is for at-a-glance monitoring.
-- Replace current lightweight modal with a richer service detail panel/page:
-  - `Overview`
-  - `Regions`
-  - `Incidents`
+When a service card is opened, the operator should immediately understand:
+1. current state,
+2. recent history,
+3. geographic behavior,
+4. multi-window reliability.
 
-### Rendering sequence
-1. Ship table-based regional and incident views first.
-2. Add map visualization after table data is stable.
-3. Add micro-animations and transitions last.
+## Remaining Work
 
----
+### A. Use the aggregate details payload first
+- switch detail rendering to use `/api/services/:id/details` as the primary source
+- surface `monitoredSince`, interval, last check source, and last check reason
+- render 24h, 7d, 30d, 365d, and total uptime directly from that payload
 
-## Delivery Steps
+### B. Add explicit incident history UX
+- render `/api/services/:id/incidents` in a dedicated panel or stronger section
+- show start, end, duration, reason, and source clearly
+- support pagination or incremental loading
 
-### Step A — Data groundwork
-- store check source in history
-- create incident table
-- backfill defaults safely
+### C. Upgrade regional diagnostics
+- keep the map
+- add a clearer list/table with status, latency, source, and age
+- make empty and partial regional data easier to interpret
 
-### Step B — Aggregation services
-- compute uptime windows from history efficiently
-- compute incident durations
-- provide regional snapshot normalization
-
-### Step C — API endpoints
-- add details/incidents/regions endpoints
-- apply ownership checks
-- return stable response contracts
-
-### Step D — UI implementation
-- build detail shell with tab navigation
-- wire overview metrics
-- wire regional table and incident list
-
-### Step E — Visualization enhancement
-- add optional world map for latest regional latencies
-- preserve fast fallback when map library fails/disabled
-
-### Step F — Hardening
-- add endpoint tests for ownership and shape
-- add manual smoke path covering all tabs
-
----
+### D. Harden the UI contract
+- validate payload shapes defensively
+- avoid whole-modal failure when one section fails
+- add stable loading/empty/error states per section
 
 ## Acceptance Criteria
-- Clicking a card shows much more than a single generic graph.
-- Users can identify where checks are passing/failing and why.
-- Users can read 24h/7d/30d/total reliability without external tools.
-- Incident history is understandable and actionable.
-- Dashboard remains fast and readable while detail view is richer.
 
----
+- `/details` is the primary detail data source
+- uptime windows are visible without manual inference
+- incident history is explicit and readable
+- regional state is understandable in both map and list form
+- partial data failures do not break the entire detail surface
 
-## Non-Goals (for this phase)
-- Public status page theming customization
-- Alert channels and escalations (handled in alerting phase)
-- Multi-tenant/org role model
+## Non-Goals
+
+- alert routing
+- public status page theming
+- org/role management

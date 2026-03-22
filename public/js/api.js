@@ -24,7 +24,14 @@ export async function apiFetch(endpoint, options = {}) {
     }
 
     if (!response.ok) {
-        throw new Error(await response.text());
+        let message;
+        try {
+            const body = await response.json();
+            message = body?.error || JSON.stringify(body);
+        } catch {
+            message = await response.text();
+        }
+        throw new Error(message);
     }
 
     // Handle 204 No Content for DELETE requests

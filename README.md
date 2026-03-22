@@ -29,10 +29,18 @@ This project is currently **working and usable** for local/self-hosted monitorin
 - Multi-location monitoring payload support (country + local server option)
 - Automatic Globalping failover to local checks + explicit local-only mode
 - Incident lifecycle fields (`active_incident_since`, `last_incident_*`) tracked per service
+- Per-check event metadata (`check_reason`, `timed_out`, `check_source`) stored and visible in modal
+- Degradation lifecycle fields (`active_degradation_since`, `last_degradation_*`) tracked per service
+- Daily rollups for low-footprint long-term uptime retention
+- Automated regression tests for auth, services, and tools routes (36 tests passing)
+- Per-service monitor config details in modal (type, interval, monitored since)
+- Uptime windows (24h, 7d, 30d, 1y, all-time) and incident history in detail modal
+- Webhook alert system: per-service alerts toggle, CRUD webhook management, HMAC-signed delivery
 
 ### Known limitations
 - Scheduler timers are in-memory (rebuilt on restart)
-- No automated test suite yet
+- `status_history_regions` has no dedicated retention pruning yet
+- Rich historical analytics view is planned separately (rollup backend foundation exists)
 
 ---
 
@@ -65,6 +73,14 @@ FORCE_LOCAL_ONLY_MODE=false
 GLOBALPING_FAILOVER_THRESHOLD=3
 GLOBALPING_RECOVERY_SUCCESS_THRESHOLD=2
 GLOBALPING_RECOVERY_PROBE_INTERVAL_MS=120000
+DEGRADATION_RESPONSE_TIME_MS=1200
+RAW_HISTORY_RETENTION_DAYS=120
+PASSWORD_MIN_LENGTH=0
+TOOLS_DEFAULT_TIMEOUT_MS=5000
+TOOLS_MAX_TIMEOUT_MS=20000
+TOOLS_TRACEROUTE_MAX_HOPS=20
+TOOLS_MTR_REPORT_CYCLES=5
+TOOLS_MAX_PACKET_COUNT=10
 ```
 
 Notes:
@@ -72,6 +88,10 @@ Notes:
 - `GLOBALPING_API_KEY` is optional; without it, anonymous Globalping access limits apply.
 - `FORCE_LOCAL_ONLY_MODE=true` forces all checks to run locally and skips Globalping.
 - The dashboard shows a warning banner when running in failover/local-only mode.
+- `DEGRADATION_RESPONSE_TIME_MS` controls when successful checks are still classified as degraded.
+- Raw `status_history` is retention-limited via `RAW_HISTORY_RETENTION_DAYS`, while `daily_rollups` preserve long-term stats.
+- `PASSWORD_MIN_LENGTH` controls account password minimum length (set `0` to disable enforcement).
+- `TOOLS_*` variables control diagnostics page limits and defaults.
 
 ### 3) Start the app
 ```bash
@@ -84,6 +104,10 @@ node server.js
 ### 5) First run
 - Sign up with a new email/password
 - Log in and add your first service monitor
+
+### 6) TV mode (read-only)
+- Open `http://localhost:3000/tv` after signing in.
+- TV mode auto-refreshes every 30 seconds and is optimized for distance readability.
 
 ---
 
@@ -102,14 +126,19 @@ node server.js
 - `src/config/database.js` opens SQLite and runs schema migrations via `PRAGMA user_version`.
 - `src/routes/auth.js` handles registration/login.
 - `src/middleware/auth.js` enforces JWT auth for protected routes.
-- `src/routes/services.js` handles service CRUD + history endpoint.
+- `src/routes/services.js` handles service CRUD + history/events/rollups/details/incidents/regions endpoints.
+- `src/routes/tools.js` handles on-demand diagnostics jobs (HTTP/DNS/Ping/Traceroute/MTR).
+- `src/routes/webhooks.js` handles webhook CRUD and test delivery.
 - `src/services/scheduler.js` manages timers and monitoring checks.
+- `src/services/alerts.js` dispatches HMAC-signed webhook payloads on service state transitions.
 
 ### Frontend architecture
 - `public/js/main.js` wires global delegated click/submit handlers.
 - `public/js/auth.js` handles auth workflow and auth state changes.
 - `public/js/api.js` centralizes authenticated fetch + `401` handling.
-- `public/js/ui.js` renders cards/charts/modal and manage-service form UX.
+- `public/js/ui.js` renders cards/charts/modal, settings, and manage-service form UX.
+- `public/js/tv.js` powers the read-only TV command-center view.
+- `public/css/index.css` and `public/css/tv.css` are the active page stylesheets.
 
 ---
 
@@ -118,14 +147,38 @@ node server.js
 ### Auth
 - `POST /api/register`
 - `POST /api/login`
+- `GET /api/account`
+- `PUT /api/account/email`
+- `PUT /api/account/password`
 
 ### Services (auth required)
 - `GET /api/services`
+- `GET /api/services/meta/monitoring`
 - `GET /api/services/:id`
 - `GET /api/services/:id/history`
+- `GET /api/services/:id/events`
+- `GET /api/services/:id/rollups`
+- `GET /api/services/:id/details`
+- `GET /api/services/:id/incidents`
+- `GET /api/services/:id/regions/latest`
 - `POST /api/services`
 - `PUT /api/services/:id`
 - `DELETE /api/services/:id`
+
+### Tools (auth required)
+- `POST /api/tools/run`
+- `GET /api/tools/jobs/:id`
+- `POST /api/tools/jobs/:id/stop`
+
+### Webhooks (auth required)
+- `GET /api/webhooks`
+- `POST /api/webhooks`
+- `PUT /api/webhooks/:id`
+- `DELETE /api/webhooks/:id`
+- `POST /api/webhooks/:id/test`
+
+### Health
+- `GET /api/health`
 
 ---
 
@@ -137,9 +190,18 @@ node server.js
 ### `services`
 - `id`, `user_id`, `name`, `type`, `target`, `interval`, `locations`
 - `status`, `lastChecked`, `lastResponseTime`, `uptime_24h`
+- `alerts_enabled`, incident/degradation lifecycle fields
 
 ### `status_history`
 - `id`, `service_id`, `timestamp`, `status`, `response_time`
+- `check_source`, `is_degraded`, `timed_out`, `check_reason`
+
+### `webhooks`
+- `id`, `user_id`, `name`, `url`, `secret` (nullable), `events` (JSON array)
+- `is_active`, `created_at`
+
+### `daily_rollups`
+- Long-term uptime buckets, pruned independently of raw `status_history`
 
 ---
 
@@ -152,13 +214,24 @@ src/
 	middleware/auth.js
 	routes/auth.js
 	routes/services.js
+	routes/tools.js
+	routes/webhooks.js
 	services/scheduler.js
+	services/alerts.js
 public/
 	index.html
+	tv.html
+	css/index.css
+	css/tv.css
 	js/main.js
 	js/auth.js
 	js/api.js
 	js/ui.js
+	js/tv.js
+tests/
+	auth.test.js
+	services.test.js
+	tools.test.js
 ```
 
 ---
@@ -191,31 +264,42 @@ public/
 - Add request/input validation for service create/update payloads
 - Add local failover + forced local-only mode with dashboard warning banner
 
-### Phase 2 — At-a-Glance Dashboard UX (Next)
+### Phase 2 — At-a-Glance Dashboard UX (Implemented)
 - Add top summary strip (total services, up, down, degraded, last check time)
 - Sort and surface critical services first
 - Improve loading/empty/error states for calmer and clearer UX
 
-### Phase 3 — TV Mode (Dedicated View)
-- Introduce a separate **TV mode view/route** optimized for distance readability
-- Larger typography, simplified controls, higher contrast status chips
-- Auto-refresh + low-distraction layout designed for always-on displays
+### Phase 3 — TV Mode (Dedicated View) (Implemented)
+- Separate **TV mode route/view** at `/tv`, optimized for distance readability
+- Larger typography, high-contrast status cards, summary strip, and warning visibility
+- Auto-refresh with command-center telemetry (clock panel, refresh countdown, event stream)
+- Fullscreen support via button and keyboard shortcut (`F`)
 
-### Phase 4 — Advanced Monitor Details (Planned)
+### Phase 4 — Advanced Monitor Details (Implemented)
 - Replace generic click modal with a richer drilldown page/panel per service
 - Include monitor details table (monitor age, interval, timeout, check source)
 - Add uptime windows (24h, 7d, 30d, year, total) and incident summaries
 - Add per-location status table with current/recent response and last check age
 - Add optional regional/world response visualization layer
 
-### Phase 5 — Alerts and Integrations
-- Add outbound notifications (webhook-first, then email/Discord/Slack)
-- Add per-service alert rules and cooldown/de-duplication behavior
+### Phase 5 — Alerts and Integrations (Implemented)
+- Webhook CRUD management in Settings (name, URL, HMAC secret, event filter, active toggle)
+- Per-service alerts toggle in service create/edit form
+- HMAC-SHA256 signed outbound payloads with `X-Webhook-Signature` header
+- Dispatches `service.down`, `service.recovered`, `service.degraded` events
+- Built-in SSRF protection on webhook URLs (blocks localhost/private IP ranges)
+- Test delivery endpoint with `X-Webhook-Test: true` header
 
 ### Phase 6 — Reliability and Testability
 - Harden scheduler behavior around restart/retry/overlap scenarios
 - Add basic route/service tests for auth and monitoring flows
 - Add structured logging and consistent API error envelopes
+
+### Phase 7 — Tools Command Suite (Core Implemented)
+- Dedicated tools page for DNS, HTTP, Ping, Traceroute, and MTR diagnostics
+- Multi-location result map + per-step live output
+- Page-lifecycle stop behavior with explicit job stop endpoint
+- In-memory job retention with safety timeout cleanup
 
 ### Detailed Build Plan for Phase 4
 1. **Data foundation:** store check source, incident boundaries, and aggregate uptime windows.
@@ -229,3 +313,21 @@ public/
 ## Contributing / Agent Notes
 
 See `AGENTS.md` for implementation guardrails, migration rules, and architecture constraints used for ongoing development.
+
+---
+
+## Next Priorities (2026-05-01)
+
+1. Expand webhook system: Discord/Slack preset URLs, alert cooldown/de-duplication to prevent flapping noise.
+2. Add retention/index strategy for `status_history_regions` and incident-heavy queries.
+3. Promote per-region detail view (`/api/services/:id/regions/latest`) in the modal Diagnostics tab.
+4. Add Tools page improvements: better Ping output formatting, fix HTTP/DNS/MTR validation errors.
+5. Scheduled silence/maintenance windows to suppress alerts during planned downtime.
+
+### Recommended order
+
+- **First:** retention/indexing
+- **Second:** alert cooldown/dedup
+- **Third:** per-region UI
+- **Fourth:** tools UX fixes
+- **Fifth:** maintenance windows

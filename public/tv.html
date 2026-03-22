@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uptime Monitor - TV Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/tv.css">
+</head>
+<body>
+    <main class="tv-shell">
+        <section class="tv-panel p-4 md:p-5 mb-4 grid grid-cols-1 xl:grid-cols-3 gap-4 items-center">
+            <div class="xl:col-span-2">
+                <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight">Network Command Center</h1>
+                <p id="tv-subtitle" class="tv-muted mt-1">Read-only live dashboard</p>
+            </div>
+            <div class="grid grid-cols-2 gap-3 items-end">
+                <div>
+                    <p class="tv-summary-label">Local Time</p>
+                    <p id="tv-clock-local" class="tv-clock text-slate-100">--:--:--</p>
+                </div>
+                <div>
+                    <p class="tv-summary-label">UTC Time</p>
+                    <p id="tv-clock-utc" class="tv-clock text-sky-300">--:--:--</p>
+                </div>
+                <div>
+                    <p class="tv-summary-label">Mode</p>
+                    <span id="tv-mode-chip" class="tv-chip tv-chip-global">GLOBAL</span>
+                </div>
+                <div>
+                    <p class="tv-summary-label">Next Refresh</p>
+                    <p id="tv-refresh-countdown" class="text-xl font-bold text-slate-200">30s</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="flex justify-end mb-3">
+            <button id="tv-fullscreen-btn" class="tv-btn">Toggle Fullscreen (F)</button>
+        </section>
+
+        <section id="tv-warning" class="tv-warning rounded-xl px-4 py-3 mb-4 hidden"></section>
+
+        <section id="tv-summary" class="grid grid-cols-2 xl:grid-cols-5 gap-3 mb-4"></section>
+
+        <section class="tv-grid">
+            <section id="tv-content" class="grid grid-cols-1 lg:grid-cols-2 gap-3"></section>
+            <aside class="tv-terminal">
+                <div class="tv-terminal-head">
+                    <span>Event Stream</span>
+                    <span id="tv-terminal-state">ONLINE</span>
+                </div>
+                <div id="tv-terminal" class="tv-terminal-body"></div>
+            </aside>
+        </section>
+    </main>
+
+    <script type="module" src="/js/tv.js"></script>
+</body>
+</html>

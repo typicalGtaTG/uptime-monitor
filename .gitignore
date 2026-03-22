@@ -138,9 +138,10 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-#Datbases
+#Databases
 *.sqlite
 database.sqlite
 
-# AI Files
-AGENTS.md
+# Markdown files (except README)
+*.md
+!README.md

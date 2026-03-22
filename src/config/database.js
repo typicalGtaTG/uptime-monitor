@@ -1,9 +1,9 @@
 // src/config/database.js
 
 const sqlite3 = require('sqlite3').verbose();
-const LATEST_SCHEMA_VERSION = 5;
+const LATEST_SCHEMA_VERSION = 9;
 
-const db = new sqlite3.Database('./database.sqlite', (err) => {
+const db = new sqlite3.Database(process.env.DB_PATH || './database.sqlite', (err) => {
     if (err) {
         console.error('Error opening database', err.message);
         process.exit(1);
@@ -41,6 +41,87 @@ function runMigrations() {
                 ALTER TABLE services ADD COLUMN last_incident_ended DATETIME;
                 ALTER TABLE services ADD COLUMN last_incident_reason TEXT;
                 ALTER TABLE services ADD COLUMN last_check_source TEXT DEFAULT 'globalping';
+            `),
+            () => db.exec(`
+                ALTER TABLE services ADD COLUMN is_degraded INTEGER DEFAULT 0;
+                ALTER TABLE services ADD COLUMN active_degradation_since DATETIME;
+                ALTER TABLE services ADD COLUMN last_degradation_started DATETIME;
+                ALTER TABLE services ADD COLUMN last_degradation_ended DATETIME;
+                ALTER TABLE services ADD COLUMN last_degradation_reason TEXT;
+                ALTER TABLE services ADD COLUMN last_check_reason TEXT;
+
+                ALTER TABLE status_history ADD COLUMN check_source TEXT DEFAULT 'globalping';
+                ALTER TABLE status_history ADD COLUMN is_degraded INTEGER DEFAULT 0;
+                ALTER TABLE status_history ADD COLUMN check_reason TEXT;
+                ALTER TABLE status_history ADD COLUMN timed_out INTEGER DEFAULT 0;
+
+                CREATE TABLE IF NOT EXISTS daily_rollups (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    service_id INTEGER NOT NULL,
+                    date TEXT NOT NULL,
+                    checks_total INTEGER NOT NULL DEFAULT 0,
+                    checks_up INTEGER NOT NULL DEFAULT 0,
+                    checks_down INTEGER NOT NULL DEFAULT 0,
+                    checks_degraded INTEGER NOT NULL DEFAULT 0,
+                    avg_response_time REAL DEFAULT 0,
+                    max_response_time INTEGER DEFAULT 0,
+                    FOREIGN KEY (service_id) REFERENCES services (id) ON DELETE CASCADE,
+                    UNIQUE(service_id, date)
+                );
+            `),
+            () => db.exec(`
+                CREATE TABLE IF NOT EXISTS service_incidents (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    service_id INTEGER NOT NULL,
+                    started_at DATETIME NOT NULL,
+                    ended_at DATETIME,
+                    duration_ms INTEGER,
+                    reason TEXT,
+                    resolved_by TEXT,
+                    start_check_source TEXT,
+                    end_check_source TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (service_id) REFERENCES services (id) ON DELETE CASCADE
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_service_incidents_service_started
+                ON service_incidents (service_id, started_at DESC);
+            `),
+            () => db.exec(`
+                CREATE TABLE IF NOT EXISTS status_history_regions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    service_id INTEGER NOT NULL,
+                    history_id INTEGER NOT NULL,
+                    timestamp DATETIME NOT NULL,
+                    location_label TEXT NOT NULL,
+                    location_code TEXT,
+                    status INTEGER NOT NULL,
+                    response_time INTEGER NOT NULL,
+                    check_source TEXT,
+                    reason TEXT,
+                    FOREIGN KEY (service_id) REFERENCES services (id) ON DELETE CASCADE,
+                    FOREIGN KEY (history_id) REFERENCES status_history (id) ON DELETE CASCADE
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_status_history_regions_service_time
+                ON status_history_regions (service_id, timestamp DESC);
+            `),
+            () => db.exec(`
+                ALTER TABLE services ADD COLUMN alerts_enabled INTEGER NOT NULL DEFAULT 0;
+
+                CREATE TABLE IF NOT EXISTS webhooks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    url TEXT NOT NULL,
+                    secret TEXT,
+                    events TEXT NOT NULL DEFAULT '["service.down","service.recovered"]',
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_webhooks_user_id ON webhooks (user_id);
             `)
         ];
 

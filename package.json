@@ -3,18 +3,21 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "test": "node --test tests/**/*.test.js",
+    "generate-world-dots": "node scripts/generate-world-dots.js"
   },
   "author": "",
-  "license": "ISC",
-  "description": "",
+  "license": "SEE LICENSE IN LICENSE",
+  "description": "Self-hosted uptime dashboard with Globalping probes, local failover, TV mode, and operator diagnostics tools.",
   "dependencies": {
-    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "node-cron": "^4.2.1",
     "node-fetch": "^3.3.2",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "topojson-client": "^3.1.0"
   }
 }

@@ -7,9 +7,12 @@
     <!-- External Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/index.css">
     
-    <style>
+    <style type="text/plain" data-migrated-to="/css/index.css">
         body {
             font-family: 'Inter', sans-serif;
             background: linear-gradient(180deg, #0b1220 0%, #0e1627 55%, #0a1324 100%);
@@ -211,10 +214,238 @@
             margin-top: 0.2rem;
         }
 
+        .health-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.3rem 0.65rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: rgba(30, 41, 59, 0.7);
+            color: #cbd5e1;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .health-chip::before {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-radius: 9999px;
+            background: #94a3b8;
+        }
+
+        .health-chip.up::before { background: #34d399; }
+        .health-chip.down::before { background: #fb7185; }
+        .health-chip.loading::before { background: #fbbf24; }
+
+        .region-map {
+            position: relative;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            background: rgba(15, 23, 42, 0.86);
+            border-radius: 12px;
+            height: 230px;
+            overflow: hidden;
+        }
+
+        .modal-tab {
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            background: rgba(30, 41, 59, 0.6);
+            color: #cbd5e1;
+            border-radius: 10px;
+            padding: 0.45rem 0.7rem;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .modal-tab.active {
+            background: rgba(30, 64, 175, 0.5);
+            border-color: rgba(96, 165, 250, 0.6);
+            color: #e0ecff;
+        }
+
+        .region-tooltip {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            right: 8px;
+            padding: 0.45rem 0.55rem;
+            font-size: 0.75rem;
+            color: #e2e8f0;
+            background: rgba(2, 6, 23, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            border-radius: 8px;
+            min-height: 32px;
+        }
+
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.8); backdrop-filter: blur(8px); z-index: 50; display: flex; align-items: center; justify-content: center; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; }
         .modal-overlay.visible { opacity: 1; visibility: visible; }
         .modal-content { transform: scale(0.95); transition: transform 0.3s ease; }
         .modal-overlay.visible .modal-content { transform: scale(1); }
+
+        .profile-menu-wrapper { position: relative; }
+        .profile-menu-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 9999px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: rgba(30, 41, 59, 0.7);
+            color: #e2e8f0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        .profile-menu-button:hover {
+            background: rgba(51, 65, 85, 0.85);
+            border-color: rgba(148, 163, 184, 0.5);
+        }
+        .profile-menu-dropdown {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            width: 176px;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: rgba(30, 58, 109, 0.92);
+            backdrop-filter: blur(8px) saturate(120%);
+            overflow: hidden;
+            z-index: 40;
+        }
+        .profile-menu-item {
+            width: 100%;
+            border: 0;
+            background: transparent;
+            color: #e2e8f0;
+            text-align: left;
+            padding: 0.8rem 0.9rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+        }
+        .profile-menu-item:hover { background: rgba(51, 65, 85, 0.55); }
+        .profile-menu-divider { border-top: 1px solid rgba(148, 163, 184, 0.35); }
+
+        .tools-tab {
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            background: rgba(30, 41, 59, 0.65);
+            color: #cbd5e1;
+            border-radius: 10px;
+            padding: 0.5rem 0.9rem;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+        .tools-tab.active {
+            background: rgba(30, 64, 175, 0.5);
+            border-color: rgba(96, 165, 250, 0.65);
+            color: #e0ecff;
+        }
+        .tools-result {
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            background: rgba(15, 23, 42, 0.68);
+            border-radius: 12px;
+            padding: 1rem;
+            min-height: 180px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #cbd5e1;
+        }
+        .tools-location-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 0.5rem;
+        }
+        .tools-location-item {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-radius: 8px;
+            padding: 0.45rem 0.55rem;
+            font-size: 0.78rem;
+            color: #cbd5e1;
+            background: rgba(30, 41, 59, 0.5);
+        }
+        .tools-location-item input {
+            accent-color: #3b82f6;
+        }
+        .tools-map-wrapper {
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-radius: 12px;
+            overflow: hidden;
+            background: rgba(15, 23, 42, 0.68);
+        }
+        .tools-map {
+            height: 260px;
+            width: 100%;
+        }
+        .tools-replay-controls {
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            background: rgba(15, 23, 42, 0.62);
+            border-radius: 12px;
+            padding: 0.75rem;
+        }
+        .tools-replay-slider {
+            width: 100%;
+            accent-color: #3b82f6;
+        }
+        .tools-replay-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-bottom: 0.4rem;
+        }
+        .tools-replay-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 0.55rem;
+        }
+        .tools-replay-btn {
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: rgba(30, 41, 59, 0.7);
+            color: #e2e8f0;
+            border-radius: 8px;
+            padding: 0.35rem 0.65rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .leaflet-container {
+            background: #020617;
+        }
+        .leaflet-tile-pane {
+            filter: saturate(0.92) brightness(0.86) contrast(1.08);
+        }
+        .leaflet-control-zoom a {
+            background: rgba(15, 23, 42, 0.92) !important;
+            color: #cbd5e1 !important;
+            border-color: rgba(148, 163, 184, 0.28) !important;
+        }
+        .leaflet-control-zoom a:hover {
+            background: rgba(30, 41, 59, 0.98) !important;
+            color: #e2e8f0 !important;
+        }
+        .leaflet-control-attribution {
+            background: rgba(15, 23, 42, 0.72) !important;
+            color: #94a3b8 !important;
+            border-top-left-radius: 8px;
+            padding: 2px 6px !important;
+        }
+        .leaflet-control-attribution a {
+            color: #93c5fd !important;
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -231,12 +462,251 @@
 
     <!-- Dashboard View -->
     <div id="dashboard-view" class="hidden">
-        <header class="p-4 flex justify-between items-center glass m-4 md:m-6"><h1 class="text-2xl font-bold text-white">Dashboard</h1><div class="flex gap-4"><button id="add-service-button" class="btn-primary text-white font-bold py-2 px-4 rounded-md hover:opacity-90 transition">Add New Service</button><button id="logout-button" class="btn-danger text-white font-bold py-2 px-4 rounded-md hover:opacity-90 transition">Logout</button></div></header>
+        <header class="p-4 flex justify-between items-center glass m-4 md:m-6"><div class="flex items-center gap-3"><h1 class="text-2xl font-bold text-white">Dashboard</h1><span id="dashboard-health-chip" class="health-chip loading">Checking</span></div><div class="flex gap-4 items-center"><button id="open-tv-button" class="py-2 px-4 rounded-md text-slate-200 bg-slate-700/70 hover:bg-slate-600/80 transition font-semibold">TV Mode</button><button id="open-tools-button" class="py-2 px-4 rounded-md text-slate-200 bg-slate-700/70 hover:bg-slate-600/80 transition font-semibold">Tools</button><button id="add-service-button" class="btn-primary text-white font-bold py-2 px-4 rounded-md hover:opacity-90 transition">Add New Service</button><div id="profile-menu-wrapper" class="profile-menu-wrapper"><button id="profile-menu-toggle" class="profile-menu-button" aria-label="Open account menu" aria-haspopup="true" aria-expanded="false"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A9.963 9.963 0 0012 20c2.53 0 4.84-.94 6.6-2.49M15 11a3 3 0 11-6 0 3 3 0 016 0z"/><circle cx="12" cy="12" r="9"/></svg></button><div id="profile-menu-dropdown" class="profile-menu-dropdown hidden"><button id="profile-menu-settings" class="profile-menu-item" type="button"><span>⚙</span><span>Settings</span></button><div class="profile-menu-divider"></div><button id="profile-menu-logout" class="profile-menu-item" type="button"><span>⏻</span><span>Sign out</span></button></div></div></div></header>
         <main class="p-4 md:p-6">
             <div id="monitoring-warning" class="monitoring-warning hidden"></div>
             <div id="dashboard-summary" class="grid grid-cols-2 xl:grid-cols-5 gap-3 mb-5"></div>
             <div id="services-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"></div>
         </main>
+    </div>
+
+    <!-- Settings View -->
+    <div id="settings-view" class="hidden p-4 md:p-8">
+        <div class="max-w-4xl mx-auto space-y-6">
+            <div class="glass p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-3xl font-bold text-white">Settings</h2>
+                        <p class="text-slate-400">Manage account access and Globalping usage.</p>
+                    </div>
+                    <button type="button" id="cancel-settings-button" class="py-2 px-4 rounded-md text-slate-300 hover:bg-slate-700 transition">Back</button>
+                </div>
+
+                <div class="space-y-3">
+                    <h3 class="font-semibold text-slate-300">Globalping Usage (This Month)</h3>
+                    <p id="settings-auto-refresh-status" class="text-xs text-slate-500">Auto-refresh every 15s • waiting for first update.</p>
+                    <p id="settings-current-email" class="text-sm text-slate-400"></p>
+                    <div class="w-full h-3 rounded-full bg-slate-800 overflow-hidden">
+                        <div id="globalping-usage-fill" class="h-full bg-sky-400" style="width: 0%"></div>
+                    </div>
+                    <div class="flex justify-between text-sm text-slate-300">
+                        <span id="globalping-usage-used">0</span>
+                        <span id="globalping-usage-limit">0</span>
+                    </div>
+                    <p id="globalping-usage-note" class="text-xs text-slate-500"></p>
+                </div>
+            </div>
+
+            <form id="settings-email-form" class="glass p-8 space-y-4">
+                <h3 class="text-xl font-semibold text-white">Change Email</h3>
+                <input type="email" id="settings-email" required class="form-input" placeholder="New email address">
+                <input type="password" id="settings-email-password" required class="form-input" placeholder="Current password">
+                <div class="flex justify-end"><button type="submit" class="btn-primary text-white font-semibold py-2 px-4 rounded-md hover:opacity-90 transition">Update Email</button></div>
+            </form>
+
+            <form id="settings-password-form" class="glass p-8 space-y-4">
+                <h3 class="text-xl font-semibold text-white">Change Password</h3>
+                <input type="password" id="settings-current-password" required class="form-input" placeholder="Current password">
+                <input type="password" id="settings-new-password" required class="form-input" placeholder="New password">
+                <div class="flex justify-end"><button type="submit" class="btn-primary text-white font-semibold py-2 px-4 rounded-md hover:opacity-90 transition">Update Password</button></div>
+            </form>
+
+            <div class="glass p-8 space-y-4">
+                <h3 class="text-xl font-semibold text-white">Node.js Runtime Stats</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="rounded-lg border border-slate-700 p-4">
+                        <p class="text-xs uppercase tracking-wide text-slate-400">CPU Usage</p>
+                        <p id="runtime-cpu-usage" class="text-2xl font-bold text-sky-300">-</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-700 p-4">
+                        <p class="text-xs uppercase tracking-wide text-slate-400">Memory Usage</p>
+                        <p id="runtime-memory-usage" class="text-2xl font-bold text-sky-300">-</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-700 p-4">
+                        <p class="text-xs uppercase tracking-wide text-slate-400">Disk Usage</p>
+                        <p id="runtime-disk-usage" class="text-2xl font-bold text-sky-300">-</p>
+                    </div>
+                </div>
+                <div class="text-sm text-slate-400 space-y-1">
+                    <p id="runtime-node-version">Node: -</p>
+                    <p id="runtime-node-uptime">Process uptime: -</p>
+                    <p id="runtime-platform">Platform: -</p>
+                    <p id="runtime-refreshed" class="text-xs text-slate-500">Last updated: -</p>
+                </div>
+            </div>
+
+            <div class="glass p-8 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-xl font-semibold text-white">Webhook Alerts</h3>
+                        <p class="text-sm text-slate-400 mt-1">Receive HTTP POST notifications when monitored services change state. Enable alerts per-service in the service edit form.</p>
+                    </div>
+                    <button type="button" id="add-webhook-button" class="btn-primary text-white font-semibold py-2 px-4 rounded-md hover:opacity-90 transition text-sm">Add Webhook</button>
+                </div>
+                <div id="webhooks-list" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Webhook Add/Edit Form Overlay -->
+    <div id="webhook-form-overlay" class="modal-overlay">
+        <div class="modal-content glass w-full max-w-lg m-4">
+            <div class="p-6 border-b border-slate-700 flex justify-between items-center">
+                <h2 id="webhook-form-title" class="text-xl font-bold text-white">Add Webhook</h2>
+                <button id="webhook-form-close" class="text-slate-400 hover:text-white text-3xl leading-none">&times;</button>
+            </div>
+            <form id="webhook-form" class="p-6 space-y-4">
+                <input type="hidden" id="webhook-id">
+                <div class="space-y-1">
+                    <label for="webhook-name" class="text-sm font-semibold text-slate-300">Name</label>
+                    <input type="text" id="webhook-name" required maxlength="80" class="form-input" placeholder="e.g., Discord Alert">
+                </div>
+                <div class="space-y-1">
+                    <label for="webhook-url" class="text-sm font-semibold text-slate-300">URL</label>
+                    <input type="url" id="webhook-url" required class="form-input" placeholder="https://hooks.example.com/notify">
+                </div>
+                <div class="space-y-1">
+                    <label for="webhook-secret" class="text-sm font-semibold text-slate-300">Secret <span class="text-slate-500 font-normal">(optional — used for HMAC-SHA256 signature)</span></label>
+                    <input type="password" id="webhook-secret" class="form-input" placeholder="Leave blank to keep existing or set none" autocomplete="new-password">
+                </div>
+                <div class="space-y-2">
+                    <p class="text-sm font-semibold text-slate-300">Trigger on</p>
+                    <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                        <input type="checkbox" id="webhook-event-down" value="service.down" class="accent-rose-400" checked>
+                        <span>Service goes <span class="text-rose-300 font-semibold">Down</span></span>
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                        <input type="checkbox" id="webhook-event-recovered" value="service.recovered" class="accent-emerald-400" checked>
+                        <span>Service <span class="text-emerald-300 font-semibold">Recovers</span></span>
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                        <input type="checkbox" id="webhook-event-degraded" value="service.degraded" class="accent-amber-400">
+                        <span>Service becomes <span class="text-amber-300 font-semibold">Degraded</span></span>
+                    </label>
+                </div>
+                <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                    <input type="checkbox" id="webhook-active" class="accent-sky-400" checked>
+                    <span>Active</span>
+                </label>
+                <div id="webhook-form-error" class="text-rose-400 text-sm hidden"></div>
+                <div class="flex justify-end gap-3 pt-2 border-t border-slate-700">
+                    <button type="button" id="webhook-form-cancel" class="py-2 px-4 rounded-md text-slate-300 hover:bg-slate-700 transition">Cancel</button>
+                    <button type="submit" class="btn-primary text-white font-semibold py-2 px-4 rounded-md hover:opacity-90 transition">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tools View -->
+    <div id="tools-view" class="hidden p-4 md:p-8">
+        <div class="max-w-4xl mx-auto space-y-6">
+            <div class="glass p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-3xl font-bold text-white">Tools</h2>
+                        <p class="text-slate-400">Run one-shot DNS, HTTP, and Ping checks.</p>
+                    </div>
+                    <button type="button" id="cancel-tools-button" class="py-2 px-4 rounded-md text-slate-300 hover:bg-slate-700 transition">Back</button>
+                </div>
+
+                <div class="flex items-center gap-2 mb-5">
+                    <button type="button" id="tools-tab-http" class="tools-tab active" data-tool="http">HTTP</button>
+                    <button type="button" id="tools-tab-dns" class="tools-tab" data-tool="dns">DNS</button>
+                    <button type="button" id="tools-tab-ping" class="tools-tab" data-tool="ping">Ping</button>
+                    <button type="button" id="tools-tab-traceroute" class="tools-tab" data-tool="traceroute">Traceroute</button>
+                    <button type="button" id="tools-tab-mtr" class="tools-tab" data-tool="mtr">MTR</button>
+                </div>
+
+                <form id="tools-form" class="space-y-4">
+                    <input type="hidden" id="tools-active-tool" value="http">
+
+                    <div>
+                        <p class="text-xs uppercase tracking-wide text-slate-400 mb-2">Locations</p>
+                        <div class="tools-location-grid" id="tools-location-grid">
+                            <label class="tools-location-item"><input type="checkbox" class="tools-location-checkbox" data-type="country" value="US" checked><span>US</span></label>
+                            <label class="tools-location-item"><input type="checkbox" class="tools-location-checkbox" data-type="country" value="GB" checked><span>GB</span></label>
+                            <label class="tools-location-item"><input type="checkbox" class="tools-location-checkbox" data-type="country" value="DE"><span>DE</span></label>
+                            <label class="tools-location-item"><input type="checkbox" class="tools-location-checkbox" data-type="country" value="FR"><span>FR</span></label>
+                            <label class="tools-location-item"><input type="checkbox" class="tools-location-checkbox" data-type="country" value="CA"><span>CA</span></label>
+                            <label class="tools-location-item"><input type="checkbox" class="tools-location-checkbox" data-type="country" value="JP"><span>JP</span></label>
+                            <label class="tools-location-item"><input type="checkbox" class="tools-location-checkbox" data-type="country" value="SG"><span>SG</span></label>
+                            <label class="tools-location-item"><input type="checkbox" class="tools-location-checkbox" data-type="country" value="IN"><span>IN</span></label>
+                            <label class="tools-location-item"><input type="checkbox" class="tools-location-checkbox" data-type="country" value="AU"><span>AU</span></label>
+                            <label class="tools-location-item"><input type="checkbox" class="tools-location-checkbox" data-type="country" value="BR"><span>BR</span></label>
+                            <label class="tools-location-item"><input type="checkbox" class="tools-location-checkbox" data-type="country" value="ZA"><span>ZA</span></label>
+                            <label class="tools-location-item"><input type="checkbox" class="tools-location-checkbox" data-type="local" value="LOCAL"><span>LOCAL</span></label>
+                        </div>
+                    </div>
+
+                    <div id="tools-panel-http" class="space-y-4">
+                        <input type="text" id="tools-http-target" class="form-input" placeholder="example.com or https://example.com" required>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <select id="tools-http-method" class="form-input"><option value="GET">GET</option><option value="HEAD">HEAD</option></select>
+                            <input type="number" id="tools-http-timeout" class="form-input" min="1000" max="20000" value="5000" placeholder="Timeout (ms)">
+                        </div>
+                    </div>
+
+                    <div id="tools-panel-dns" class="space-y-4 hidden">
+                        <input type="text" id="tools-dns-target" class="form-input" placeholder="example.com">
+                        <select id="tools-dns-record-type" class="form-input">
+                            <option value="A">A</option>
+                            <option value="AAAA">AAAA</option>
+                            <option value="CNAME">CNAME</option>
+                            <option value="MX">MX</option>
+                            <option value="TXT">TXT</option>
+                            <option value="NS">NS</option>
+                            <option value="SRV">SRV</option>
+                        </select>
+                    </div>
+
+                    <div id="tools-panel-ping" class="space-y-4 hidden">
+                        <input type="text" id="tools-ping-target" class="form-input" placeholder="8.8.8.8 or example.com">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input type="number" id="tools-ping-timeout" class="form-input" min="1000" max="20000" value="5000" placeholder="Timeout (ms)">
+                            <input type="number" id="tools-ping-packets" class="form-input" min="1" max="16" value="4" placeholder="Packets (1–16)">
+                        </div>
+                    </div>
+
+                    <div id="tools-panel-traceroute" class="space-y-4 hidden">
+                        <input type="text" id="tools-traceroute-target" class="form-input" placeholder="example.com or 8.8.8.8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input type="number" id="tools-traceroute-timeout" class="form-input" min="1000" max="20000" value="5000" placeholder="Timeout (ms)">
+                            <input type="number" id="tools-traceroute-max-hops" class="form-input" min="1" max="64" value="20" placeholder="Max hops">
+                        </div>
+                    </div>
+
+                    <div id="tools-panel-mtr" class="space-y-4 hidden">
+                        <input type="text" id="tools-mtr-target" class="form-input" placeholder="example.com or 8.8.8.8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input type="number" id="tools-mtr-cycles" class="form-input" min="1" max="16" value="5" placeholder="Rounds per hop (1–16)">
+                            <div class="flex items-center text-xs text-slate-500 italic px-1">Wait time is computed automatically (≈ cycles × 3.5s + 15s)</div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button type="submit" id="tools-run-button" class="btn-primary text-white font-semibold py-2 px-4 rounded-md hover:opacity-90 transition">Run Check</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="glass p-8">
+                <h3 class="text-xl font-semibold text-white mb-3">Result</h3>
+                <div id="tools-replay-controls" class="tools-replay-controls mb-3 hidden">
+                    <div class="tools-replay-meta">
+                        <span id="tools-replay-caption">Packet Timeline</span>
+                        <span id="tools-replay-step-label">Packet 1 / 1</span>
+                    </div>
+                    <input id="tools-replay-slider" class="tools-replay-slider" type="range" min="1" max="1" step="1" value="1">
+                    <div class="tools-replay-actions">
+                        <button type="button" id="tools-replay-play" class="tools-replay-btn">Play</button>
+                    </div>
+                </div>
+                <pre id="tools-result-output" class="tools-result">Run a tool check to see output.</pre>
+                <div id="tools-map-wrapper" class="tools-map-wrapper mt-4 hidden">
+                    <div id="tools-live-map" class="tools-map"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Manage Service View (for Add/Edit) -->
@@ -260,7 +730,16 @@
                     <div id="locations-dropdown" class="locations-dropdown hidden"></div>
                 </div>
             </div>
-            <div class="flex justify-end gap-4 pt-4 border-t border-slate-700"><button type="button" id="cancel-manage-button" class="py-2 px-4 rounded-md text-slate-300 hover:bg-slate-700 transition">Cancel</button><button type="submit" class="py-2 px-4 rounded-md text-white btn-primary hover:opacity-90 transition">Save Service</button></div>
+            <div class="pt-4 border-t border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                        <input type="checkbox" id="service-alerts-enabled" class="accent-sky-400">
+                        <span>Enable webhook alerts for this service</span>
+                    </label>
+                    <div class="flex gap-3">
+                        <button type="button" id="cancel-manage-button" class="py-2 px-4 rounded-md text-slate-300 hover:bg-slate-700 transition">Cancel</button>
+                        <button type="submit" class="py-2 px-4 rounded-md text-white btn-primary hover:opacity-90 transition">Save Service</button>
+                    </div>
+                </div>
         </form>
     </div>
 
@@ -276,8 +755,30 @@
             </div>
             <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="md:col-span-2">
-                    <h3 class="font-semibold mb-2 text-slate-300">Response Time (Last 30 Checks)</h3>
-                    <div class="h-64"><canvas id="modal-chart"></canvas></div>
+                    <div class="flex items-center gap-2 mb-3">
+                        <button id="modal-tab-overview" class="modal-tab active">Overview</button>
+                        <button id="modal-tab-diagnostics" class="modal-tab">Diagnostics</button>
+                    </div>
+
+                    <div id="modal-panel-overview">
+                        <h3 class="font-semibold mb-2 text-slate-300">Response Time (Last 30 Checks)</h3>
+                        <div class="h-64"><canvas id="modal-chart"></canvas></div>
+                        <div class="mt-4">
+                            <h3 class="font-semibold mb-2 text-slate-300">Regional Snapshot</h3>
+                            <div id="modal-region-map" class="region-map"></div>
+                            <div id="modal-region-tooltip" class="region-tooltip mt-2">Hover a location marker for latency details.</div>
+                            <ul id="modal-region-list" class="text-xs text-slate-300 space-y-1 max-h-28 overflow-y-auto mt-2"></ul>
+                        </div>
+                    </div>
+
+                    <div id="modal-panel-diagnostics" class="hidden">
+                        <h3 class="font-semibold mb-2 text-slate-300">Recent Check Events</h3>
+                        <ul id="modal-events-list" class="text-xs text-slate-300 space-y-1 max-h-48 overflow-y-auto"></ul>
+                        <div class="mt-4">
+                            <h3 class="font-semibold mb-2 text-slate-300">Incident History</h3>
+                            <ul id="modal-incidents-list" class="text-xs text-slate-300 space-y-1 max-h-48 overflow-y-auto"></ul>
+                        </div>
+                    </div>
                 </div>
                 <div class="space-y-4">
                     <div>
@@ -289,9 +790,36 @@
                         <p id="modal-check-source" class="text-lg font-semibold text-sky-300">-</p>
                     </div>
                     <div>
+                        <h3 class="font-semibold text-slate-300">Monitor Config</h3>
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-1 mt-1">
+                            <div><p class="text-xs text-slate-400">Type</p><p id="modal-config-type" class="text-sm font-semibold text-slate-200">-</p></div>
+                            <div><p class="text-xs text-slate-400">Interval</p><p id="modal-config-interval" class="text-sm font-semibold text-slate-200">-</p></div>
+                            <div class="col-span-2"><p class="text-xs text-slate-400">Monitored since</p><p id="modal-config-since" class="text-sm font-semibold text-slate-200">-</p></div>
+                        </div>
+                    </div>
+                    <div>
                         <h3 class="font-semibold text-slate-300">Incident Status</h3>
                         <p id="modal-incident-status" class="text-sm text-slate-300">No active incident.</p>
                         <p id="modal-last-incident-reason" class="text-xs text-slate-400 mt-1"></p>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-300">Degradation Status</h3>
+                        <p id="modal-degradation-status" class="text-sm text-slate-300">No active degradation.</p>
+                        <p id="modal-last-degradation-reason" class="text-xs text-slate-400 mt-1"></p>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-300">Long-Term Uptime</h3>
+                        <p id="modal-total-uptime" class="text-2xl font-bold text-sky-300">-</p>
+                        <p id="modal-total-checks" class="text-xs text-slate-400 mt-1"></p>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-300">Uptime Windows</h3>
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-1 mt-1">
+                            <div><p class="text-xs text-slate-400">7-day</p><p id="modal-uptime-7d" class="text-base font-bold text-sky-300">-</p></div>
+                            <div><p class="text-xs text-slate-400">30-day</p><p id="modal-uptime-30d" class="text-base font-bold text-sky-300">-</p></div>
+                            <div><p class="text-xs text-slate-400">365-day</p><p id="modal-uptime-365d" class="text-base font-bold text-sky-300">-</p></div>
+                            <div><p class="text-xs text-slate-400">All-time</p><p id="modal-uptime-alltime" class="text-base font-bold text-sky-300">-</p></div>
+                        </div>
                     </div>
                     <div>
                         <h3 class="font-semibold text-slate-300">Recent Downtime</h3>
